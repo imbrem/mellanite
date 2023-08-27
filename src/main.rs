@@ -17,7 +17,7 @@ use rand::Rng;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(C)]
 pub struct ChunkData {
-    pub blocks: [[[u16; 16]; 16]; 16],
+    pub blocks: [[[u32; 16]; 16]; 16],
 }
 
 impl ChunkData {
@@ -264,6 +264,7 @@ fn main() {
             scale_factor: 1.0,
             ..EguiSettings::default()
         })
+        .insert_resource(Blocks::default())
         .add_systems(Startup, setup_player)
         .add_systems(Startup, setup_environment)
         .add_systems(Update, ui_system)
@@ -274,14 +275,25 @@ fn main() {
 #[derive(Component)]
 struct PlayerCamera;
 
+#[derive(Component)]
+struct IsChunk;
+
 fn setup_player(mut commands: Commands) {
     commands.spawn((Camera3dBundle::default(), PlayerCamera));
+}
+
+#[derive(Resource, Default)]
+struct Blocks {
+    coords: Handle<StandardMaterial>,
+    white_ore: Handle<StandardMaterial>,
+    swapped: bool,
 }
 
 fn setup_environment(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut blocks: ResMut<Blocks>,
     asset_server: Res<AssetServer>,
 ) {
     let mut chunk = ChunkData {
@@ -320,6 +332,18 @@ fn setup_environment(
         ..default()
     });
 
+    let coords_texture: Handle<Image> = asset_server.load("coords.png");
+    let coords: Handle<StandardMaterial> = materials.add(StandardMaterial {
+        base_color_texture: Some(coords_texture),
+        perceptual_roughness: 1.0,
+        reflectance: 0.0,
+        unlit: false,
+        ..default()
+    });
+
+    blocks.white_ore = white_ore.clone();
+    blocks.coords = coords;
+
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
     mesh.set_indices(Some(Indices::U16(triangles)));
@@ -338,12 +362,15 @@ fn setup_environment(
         ..default()
     });
 
-    commands.spawn(PbrBundle {
-        mesh: chunk_mesh,
-        material: white_ore.clone(),
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: chunk_mesh,
+            material: white_ore.clone(),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
+            ..default()
+        },
+        IsChunk,
+    ));
 }
 
 fn player_control(
@@ -351,8 +378,10 @@ fn player_control(
     btn: Res<Input<MouseButton>>,
     mut motion_evr: EventReader<MouseMotion>,
     time: Res<Time>,
+    mut blocks: ResMut<Blocks>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut player: Query<&mut Transform, With<PlayerCamera>>,
+    mut chunk_textures: Query<&mut Handle<StandardMaterial>, With<IsChunk>>,
 ) {
     const MOTION_SPEED: f32 = 3.0;
     const KEYBOARD_ROTATION_SPEED: f32 = PI / 4.0;
@@ -406,6 +435,17 @@ fn player_control(
     }
     if key.pressed(KeyCode::E) {
         player.rotate_local_z(KEYBOARD_ROTATION_SPEED * delta)
+    }
+    if key.just_pressed(KeyCode::T) {
+        for mut texture in chunk_textures.iter_mut() {
+            if blocks.swapped {
+                *texture = blocks.white_ore.clone();
+                blocks.swapped = false;
+            } else {
+                *texture = blocks.coords.clone();
+                blocks.swapped = true;
+            }
+        }
     }
 
     for ev in motion_evr.iter() {
