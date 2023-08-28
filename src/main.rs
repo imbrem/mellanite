@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use bevy::{
+    asset::ChangeWatcher,
     diagnostic::FrameTimeDiagnosticsPlugin,
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
@@ -15,7 +18,14 @@ mod ui;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(AssetPlugin {
+                    watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
+                    ..default()
+                }),
+        )
         .add_plugins(EguiPlugin)
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .insert_resource(EguiSettings {
@@ -45,7 +55,8 @@ fn setup_environment(
     for x in 0..16 {
         for z in 0..16 {
             let y = rng.gen_range(7..=9);
-            for y in 0..=y {
+            chunk.blocks[x][y][z] = 2;
+            for y in 0..y {
                 chunk.blocks[x][y][z] = 1;
             }
         }
@@ -63,6 +74,15 @@ fn setup_environment(
         &mut uv,
         [None, None, None, None, None, None],
     );
+
+    let atlas_texture: Handle<Image> = asset_server.load("atlas.png");
+    let atlas: Handle<StandardMaterial> = materials.add(StandardMaterial {
+        base_color_texture: Some(atlas_texture),
+        perceptual_roughness: 1.0,
+        reflectance: 0.0,
+        unlit: false,
+        ..default()
+    });
 
     let white_ore_texture: Handle<Image> = asset_server.load("white_ore.png");
     let white_ore: Handle<StandardMaterial> = materials.add(StandardMaterial {
@@ -83,7 +103,7 @@ fn setup_environment(
     });
 
     blocks.white_ore = white_ore.clone();
-    blocks.coords = coords;
+    blocks.coords = coords.clone();
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
@@ -106,7 +126,7 @@ fn setup_environment(
     commands.spawn((
         PbrBundle {
             mesh: chunk_mesh,
-            material: white_ore.clone(),
+            material: atlas.clone(),
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
             ..default()
         },

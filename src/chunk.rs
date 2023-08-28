@@ -37,7 +37,7 @@ impl ChunkData {
             for y in 0..16 {
                 for z in 0..16 {
                     // This will be replaced with a "transparency class" mapping later
-                    buffer[x + 1][y + 1][z + 1] = (self.blocks[x][y][z] != 0) as u8 * 255
+                    buffer[x + 1][y + 1][z + 1] = self.blocks[x][y][z]
                 }
             }
         }
@@ -45,7 +45,7 @@ impl ChunkData {
             // +x
             for x in 0..16 {
                 for z in 0..16 {
-                    buffer[x + 1][17][z + 1] = (top.blocks[x][0][z] != 0) as u8 * 255
+                    buffer[x + 1][17][z + 1] = top.blocks[x][0][z]
                 }
             }
         }
@@ -53,7 +53,7 @@ impl ChunkData {
             // -x
             for x in 0..16 {
                 for z in 0..16 {
-                    buffer[x + 1][0][z + 1] = (bottom.blocks[x][15][z] != 0) as u8 * 255
+                    buffer[x + 1][0][z + 1] = bottom.blocks[x][15][z]
                 }
             }
         }
@@ -61,7 +61,7 @@ impl ChunkData {
             // +y
             for y in 0..16 {
                 for z in 0..16 {
-                    buffer[17][y + 1][z + 1] = (right.blocks[0][y][z] != 0) as u8 * 255
+                    buffer[17][y + 1][z + 1] = right.blocks[0][y][z]
                 }
             }
         }
@@ -69,7 +69,7 @@ impl ChunkData {
             // -y
             for y in 0..16 {
                 for z in 0..16 {
-                    buffer[0][y + 1][z + 1] = (left.blocks[17][y][z] != 0) as u8 * 255
+                    buffer[0][y + 1][z + 1] = left.blocks[17][y][z]
                 }
             }
         }
@@ -77,7 +77,7 @@ impl ChunkData {
             // +z
             for x in 0..16 {
                 for y in 0..16 {
-                    buffer[x + 1][y + 1][17] = (back.blocks[x][y][0] != 0) as u8 * 255
+                    buffer[x + 1][y + 1][17] = back.blocks[x][y][0]
                 }
             }
         }
@@ -85,7 +85,7 @@ impl ChunkData {
             // -z
             for x in 0..16 {
                 for y in 0..16 {
-                    buffer[x + 1][y + 1][0] = (front.blocks[x][y][17] != 0) as u8 * 255
+                    buffer[x + 1][y + 1][0] = front.blocks[x][y][17]
                 }
             }
         }
@@ -107,6 +107,8 @@ impl ChunkData {
                     let back = buffer[x + 1][y + 1][z + 2];
                     let front = buffer[x + 1][y + 1][z];
 
+                    let uvx = if me == 1 { 0.0 } else { 0.5 };
+
                     // Center of block coordinates
                     let x = x as f32 - 8.0;
                     let y = y as f32 - 8.0;
@@ -123,10 +125,10 @@ impl ChunkData {
                         normals.push([0.0, 1.0, 0.0]);
                         normals.push([0.0, 1.0, 0.0]);
                         normals.push([0.0, 1.0, 0.0]);
-                        uv.push([0.0, 0.0]);
-                        uv.push([1.0, 0.0]);
-                        uv.push([1.0, 1.0]);
-                        uv.push([0.0, 1.0]);
+                        uv.push([uvx, 0.0]);
+                        uv.push([uvx + 0.5, 0.0]);
+                        uv.push([uvx + 0.5, 1.0]);
+                        uv.push([uvx, 1.0]);
                         triangles.push(v);
                         triangles.push(v + 3);
                         triangles.push(v + 1);
@@ -144,10 +146,10 @@ impl ChunkData {
                         normals.push([0.0, -1.0, 0.0]);
                         normals.push([0.0, -1.0, 0.0]);
                         normals.push([0.0, -1.0, 0.0]);
-                        uv.push([0.0, 1.0]);
-                        uv.push([0.0, 0.0]);
-                        uv.push([1.0, 1.0]);
-                        uv.push([1.0, 0.0]);
+                        uv.push([uvx, 1.0]);
+                        uv.push([uvx, 0.0]);
+                        uv.push([uvx + 0.5, 1.0]);
+                        uv.push([uvx + 0.5, 0.0]);
                         triangles.push(v);
                         triangles.push(v + 2);
                         triangles.push(v + 1);
@@ -165,10 +167,10 @@ impl ChunkData {
                         normals.push([1.0, 0.0, 0.0]);
                         normals.push([1.0, 0.0, 0.0]);
                         normals.push([1.0, 0.0, 0.0]);
-                        uv.push([0.0, 1.0]);
-                        uv.push([1.0, 1.0]);
-                        uv.push([1.0, 0.0]);
-                        uv.push([0.0, 0.0]);
+                        uv.push([uvx, 1.0]);
+                        uv.push([uvx + 0.5, 1.0]);
+                        uv.push([uvx + 0.5, 0.0]);
+                        uv.push([uvx, 0.0]);
                         triangles.push(v);
                         triangles.push(v + 3);
                         triangles.push(v + 1);
@@ -186,10 +188,10 @@ impl ChunkData {
                         normals.push([-1.0, 0.0, 0.0]);
                         normals.push([-1.0, 0.0, 0.0]);
                         normals.push([-1.0, 0.0, 0.0]);
-                        uv.push([1.0, 1.0]);
-                        uv.push([0.0, 1.0]);
-                        uv.push([1.0, 0.0]);
-                        uv.push([0.0, 0.0]);
+                        uv.push([uvx + 0.5, 1.0]);
+                        uv.push([uvx, 1.0]);
+                        uv.push([uvx + 0.5, 0.0]);
+                        uv.push([uvx, 0.0]);
                         triangles.push(v);
                         triangles.push(v + 2);
                         triangles.push(v + 1);
@@ -207,10 +209,10 @@ impl ChunkData {
                         normals.push([0.0, 0.0, 1.0]);
                         normals.push([0.0, 0.0, 1.0]);
                         normals.push([0.0, 0.0, 1.0]);
-                        uv.push([0.0, 1.0]);
-                        uv.push([0.0, 0.0]);
-                        uv.push([1.0, 0.0]);
-                        uv.push([1.0, 1.0]);
+                        uv.push([uvx, 1.0]);
+                        uv.push([uvx, 0.0]);
+                        uv.push([uvx + 0.5, 0.0]);
+                        uv.push([uvx + 0.5, 1.0]);
                         triangles.push(v);
                         triangles.push(v + 3);
                         triangles.push(v + 1);
@@ -228,10 +230,10 @@ impl ChunkData {
                         normals.push([0.0, 0.0, -1.0]);
                         normals.push([0.0, 0.0, -1.0]);
                         normals.push([0.0, 0.0, -1.0]);
-                        uv.push([0.0, 0.0]);
-                        uv.push([0.0, 1.0]);
-                        uv.push([1.0, 1.0]);
-                        uv.push([1.0, 0.0]);
+                        uv.push([uvx, 0.0]);
+                        uv.push([uvx, 1.0]);
+                        uv.push([uvx + 0.5, 1.0]);
+                        uv.push([uvx + 0.5, 0.0]);
                         triangles.push(v);
                         triangles.push(v + 1);
                         triangles.push(v + 3);
