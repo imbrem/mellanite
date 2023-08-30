@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
-use crate::blocks::BlockId;
+use crate::block::{BlockId, Blocks};
 
 #[derive(Component)]
 pub struct IsChunkMesh;
@@ -23,6 +23,7 @@ impl ChunkData {
 
     pub fn compute_mesh(
         &self,
+        blocks: &Blocks,
         vertices: &mut Vec<[f32; 3]>,
         triangles: &mut Vec<u16>,
         normals: &mut Vec<[f32; 3]>,
@@ -34,7 +35,7 @@ impl ChunkData {
         triangles.clear();
         uv.clear();
 
-        let mut buffer = [[[BlockId(0); 18]; 18]; 18];
+        let mut buffer = [[[BlockId::default(); 18]; 18]; 18];
         for x in 0..16 {
             for y in 0..16 {
                 for z in 0..16 {
@@ -96,20 +97,20 @@ impl ChunkData {
             for y in 0..16 {
                 for z in 0..16 {
                     // top face
-                    let me = buffer[x + 1][y + 1][z + 1];
+                    let me = blocks.get_meshing_data(buffer[x + 1][y + 1][z + 1]);
 
-                    if me.0 == 0 {
+                    if me.opacity == 0 {
                         continue;
                     }
 
-                    let coords = me.coords();
+                    let coords = me.texture.coords();
 
-                    let top = buffer[x + 1][y + 2][z + 1];
-                    let bottom = buffer[x + 1][y][z + 1];
-                    let right = buffer[x + 2][y + 1][z + 1];
-                    let left = buffer[x][y + 1][z + 1];
-                    let back = buffer[x + 1][y + 1][z + 2];
-                    let front = buffer[x + 1][y + 1][z];
+                    let top = blocks.get_meshing_data(buffer[x + 1][y + 2][z + 1]);
+                    let bottom = blocks.get_meshing_data(buffer[x + 1][y][z + 1]);
+                    let right = blocks.get_meshing_data(buffer[x + 2][y + 1][z + 1]);
+                    let left = blocks.get_meshing_data(buffer[x][y + 1][z + 1]);
+                    let back = blocks.get_meshing_data(buffer[x + 1][y + 1][z + 2]);
+                    let front = blocks.get_meshing_data(buffer[x + 1][y + 1][z]);
 
                     // Center of block coordinates
                     let x = x as f32 - 8.0;
@@ -117,7 +118,7 @@ impl ChunkData {
                     let z = z as f32 - 8.0;
 
                     //TODO: shared texture optimization?
-                    if me > top {
+                    if me.opacity != top.opacity {
                         let v = vertices.len() as u16;
                         vertices.push([x - 0.5, y + 0.5, z - 0.5]);
                         vertices.push([x + 0.5, y + 0.5, z - 0.5]);
@@ -138,7 +139,7 @@ impl ChunkData {
                         triangles.push(v + 3);
                         triangles.push(v + 2);
                     }
-                    if me > bottom {
+                    if me.opacity != bottom.opacity {
                         let v = vertices.len() as u16;
                         vertices.push([x + 0.5, y - 0.5, z + 0.5]);
                         vertices.push([x + 0.5, y - 0.5, z - 0.5]);
@@ -159,7 +160,7 @@ impl ChunkData {
                         triangles.push(v + 3);
                         triangles.push(v + 1);
                     }
-                    if me > right {
+                    if me.opacity != right.opacity {
                         let v = vertices.len() as u16;
                         vertices.push([x + 0.5, y - 0.5, z - 0.5]);
                         vertices.push([x + 0.5, y - 0.5, z + 0.5]);
@@ -180,7 +181,7 @@ impl ChunkData {
                         triangles.push(v + 3);
                         triangles.push(v + 2);
                     }
-                    if me > left {
+                    if me.opacity != left.opacity {
                         let v = vertices.len() as u16;
                         vertices.push([x - 0.5, y - 0.5, z + 0.5]);
                         vertices.push([x - 0.5, y - 0.5, z - 0.5]);
@@ -201,7 +202,7 @@ impl ChunkData {
                         triangles.push(v + 3);
                         triangles.push(v + 1);
                     }
-                    if me > back {
+                    if me.opacity != back.opacity {
                         let v = vertices.len() as u16;
                         vertices.push([x - 0.5, y - 0.5, z + 0.5]);
                         vertices.push([x - 0.5, y + 0.5, z + 0.5]);
@@ -222,7 +223,7 @@ impl ChunkData {
                         triangles.push(v + 3);
                         triangles.push(v + 2);
                     }
-                    if me > front {
+                    if me.opacity != front.opacity {
                         let v = vertices.len() as u16;
                         vertices.push([x - 0.5, y - 0.5, z - 0.5]);
                         vertices.push([x - 0.5, y + 0.5, z - 0.5]);

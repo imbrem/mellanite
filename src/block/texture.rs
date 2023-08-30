@@ -9,10 +9,10 @@ use bytemuck::{Pod, Zeroable};
 use slab::Slab;
 
 #[derive(Resource, Default)]
-pub struct Blocks {
+pub struct BlockTextures {
     texture_materials: Vec<Handle<StandardMaterial>>,
     blocks: Slab<BlockData>,
-    textures: BTreeSet<(HandleId, BlockId)>,
+    textures: BTreeSet<(HandleId, BlockTextureId)>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -20,35 +20,24 @@ struct BlockData {
     texture: Option<Handle<Image>>,
 }
 
-impl Blocks {
+impl BlockTextures {
     #[inline]
-    pub fn new_block(
+    pub fn new_texture(
         &mut self,
-        images: &mut Assets<Image>,
         materials: &mut Assets<StandardMaterial>,
-    ) -> Result<BlockId, ()> {
+    ) -> Result<BlockTextureId, ()> {
         let ix = self.blocks.insert(BlockData { texture: None });
         if ix >= u32::MAX as usize {
             Err(())
         } else {
-            let id = BlockId(ix as u32);
+            let id = BlockTextureId(ix as u32);
             while self.texture_materials.len() <= id.sheet().0 as usize {
-                let image = Image::new_fill(
-                    Extent3d {
-                        width: 16 * 256,
-                        height: 16 * 256,
-                        depth_or_array_layers: 1,
-                    },
-                    TextureDimension::D2,
-                    &[0, 0, 255, 255],
-                    TextureFormat::Rgba8UnormSrgb,
-                );
-                let image_id = images.add(image);
                 let material = StandardMaterial {
-                    base_color_texture: Some(image_id.clone()), //TODO: allow null images later...
+                    base_color_texture: None,
                     perceptual_roughness: 1.0,
                     reflectance: 0.0,
                     unlit: false,
+                    alpha_mode: AlphaMode::Mask(0.5),
                     ..default()
                 };
                 let mat_id = materials.add(material);
@@ -61,7 +50,7 @@ impl Blocks {
     #[inline]
     pub fn set_block_texture(
         &mut self,
-        block: BlockId,
+        block: BlockTextureId,
         texture: Handle<Image>,
         images: &mut Assets<Image>,
         materials: &mut Assets<StandardMaterial>,
@@ -100,16 +89,27 @@ impl Blocks {
     #[inline]
     fn blit_texture_inner(
         texture_sheets: &mut [Handle<StandardMaterial>],
-        block: BlockId,
+        block: BlockTextureId,
         texture: &Image,
         images: &mut Assets<Image>,
         materials: &mut Assets<StandardMaterial>,
     ) {
         let sheet = &mut texture_sheets[block.sheet().0 as usize];
         let target_mat = materials.get_mut(sheet).unwrap();
-        let target_data = images
-            .get_mut(target_mat.base_color_texture.as_ref().unwrap())
-            .unwrap();
+        let base_color_texture = target_mat.base_color_texture.get_or_insert_with(|| {
+            let image = Image::new_fill(
+                Extent3d {
+                    width: 16 * 256,
+                    height: 16 * 256,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                &[0, 0, 255, 255],
+                TextureFormat::Rgba8UnormSrgb,
+            );
+            images.add(image)
+        });
+        let target_data = images.get_mut(base_color_texture).unwrap();
         let coords = block.coords();
         let start = coords.x_ix() as usize * 4 * 16 + coords.y_ix() as usize * 4 * 16 * 256;
         for y in 0..16 {
@@ -120,9 +120,6 @@ impl Blocks {
                 }
             }
         }
-        // for data in target_data.data.iter_mut() {
-        //     *data = 50;
-        // }
     }
 
     // #[inline]
@@ -140,9 +137,9 @@ impl Blocks {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(transparent)]
-pub struct BlockId(pub u32);
+pub struct BlockTextureId(pub u32);
 
-impl BlockId {
+impl BlockTextureId {
     /// Get this block's associated texture sheet
     #[inline]
     pub fn sheet(&self) -> SheetId {
@@ -156,9 +153,17 @@ impl BlockId {
     }
 }
 
+impl Default for BlockTextureId {
+    fn default() -> Self {
+        Self(u32::MAX)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(transparent)]
 pub struct SheetCoords(pub u16);
+
+pub const BORDER_WIDTH: f32 = 0.0002;
 
 impl SheetCoords {
     pub fn x_ix(&self) -> u8 {
@@ -170,27 +175,30 @@ impl SheetCoords {
     }
 
     pub fn top_left(&self) -> [f32; 2] {
-        [self.x_ix() as f32 / 256.0, self.y_ix() as f32 / 256.0]
+        [
+            self.x_ix() as f32 / 256.0 + BORDER_WIDTH,
+            self.y_ix() as f32 / 256.0 + BORDER_WIDTH,
+        ]
     }
 
     pub fn top_right(&self) -> [f32; 2] {
         [
-            (self.x_ix() as f32 + 1.0) / 256.0,
-            self.y_ix() as f32 / 256.0,
+            (self.x_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
+            self.y_ix() as f32 / 256.0 + BORDER_WIDTH,
         ]
     }
 
     pub fn bottom_left(&self) -> [f32; 2] {
         [
-            self.x_ix() as f32 / 256.0,
-            (self.y_ix() as f32 + 1.0) / 256.0,
+            self.x_ix() as f32 / 256.0 + BORDER_WIDTH,
+            (self.y_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
         ]
     }
 
     pub fn bottom_right(&self) -> [f32; 2] {
         [
-            (self.x_ix() as f32 + 1.0) / 256.0,
-            (self.y_ix() as f32 + 1.0) / 256.0,
+            (self.x_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
+            (self.y_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
         ]
     }
 }
@@ -201,7 +209,7 @@ pub struct SheetId(pub u16);
 
 pub fn blit_loaded_textures(
     mut events: EventReader<AssetEvent<Image>>,
-    mut blocks: ResMut<Blocks>,
+    mut blocks: ResMut<BlockTextures>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -212,11 +220,11 @@ pub fn blit_loaded_textures(
                 let blocks = &mut *blocks;
                 for (lowest_id, block) in blocks
                     .textures
-                    .range((id, BlockId(0))..=(id, BlockId(u32::MAX)))
+                    .range((id, BlockTextureId(0))..=(id, BlockTextureId(u32::MAX)))
                 {
                     debug_assert_eq!(id, *lowest_id);
                     if let Some(data) = images.get(handle) {
-                        Blocks::blit_texture_inner(
+                        BlockTextures::blit_texture_inner(
                             &mut blocks.texture_materials,
                             *block,
                             &data.convert(TextureFormat::Rgba8UnormSrgb).unwrap(),
@@ -231,7 +239,7 @@ pub fn blit_loaded_textures(
                 let id = handle.id();
                 while let Some(&(lowest_id, block)) = blocks
                     .textures
-                    .range((id, BlockId(0))..=(id, BlockId(u32::MAX)))
+                    .range((id, BlockTextureId(0))..=(id, BlockTextureId(u32::MAX)))
                     .next()
                 {
                     debug_assert_eq!(id, lowest_id);

@@ -6,8 +6,11 @@ use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
-use bevy_egui::{EguiPlugin, EguiSettings};
-use mellanite::blocks::{self, blit_loaded_textures, BlockId, Blocks, SheetId};
+use bevy_egui::{EguiPlugin, EguiSettings, egui::color_picker::Alpha};
+use mellanite::block::{
+    texture::{blit_loaded_textures, BlockTextures, SheetId},
+    BlockId, Blocks,
+};
 use mellanite::chunk::{ChunkData, IsChunkMesh};
 use rand::Rng;
 
@@ -27,7 +30,8 @@ fn main() {
             scale_factor: 1.0,
             ..EguiSettings::default()
         })
-        .insert_resource(blocks::Blocks::default())
+        .insert_resource(Blocks::default())
+        .insert_resource(BlockTextures::default())
         .add_systems(Startup, mellanite::player::setup_player)
         .add_systems(Startup, setup_environment)
         .add_systems(Update, mellanite::ui::ui_system)
@@ -41,20 +45,33 @@ fn setup_environment(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut blocks: ResMut<Blocks>,
+    mut textures: ResMut<BlockTextures>,
     mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
 ) {
     let mut chunk = ChunkData {
-        blocks: [[[BlockId(0); 16]; 16]; 16],
+        blocks: [[[BlockId::default(); 16]; 16]; 16],
     };
+
+    let coords_texture = textures.new_texture(&mut materials).unwrap();
+    let dirt_texture = textures.new_texture(&mut materials).unwrap();
+    let stone_texture: mellanite::block::texture::BlockTextureId =
+        textures.new_texture(&mut materials).unwrap();
+    let white_ore_texture = textures.new_texture(&mut materials).unwrap();
+    let glass_texture = textures.new_texture(&mut materials).unwrap();
+    let _coords = blocks.new_block(coords_texture, u32::MAX).unwrap();
+    let dirt = blocks.new_block(dirt_texture, u32::MAX).unwrap();
+    let _stone = blocks.new_block(stone_texture, u32::MAX).unwrap();
+    let _white_ore = blocks.new_block(white_ore_texture, u32::MAX).unwrap();
+    let glass = blocks.new_block(glass_texture, 1).unwrap();
 
     let mut rng = rand::thread_rng();
     for x in 0..16 {
         for z in 0..16 {
             let y = rng.gen_range(7..=9);
-            chunk.blocks[x][y][z] = BlockId(2);
+            chunk.blocks[x][y][z] = dirt;
             for y in 0..y {
-                chunk.blocks[x][y][z] = BlockId(1);
+                chunk.blocks[x][y][z] = glass;
             }
         }
     }
@@ -65,6 +82,7 @@ fn setup_environment(
     let mut uv = Vec::new();
 
     chunk.compute_mesh(
+        &blocks,
         &mut vertices,
         &mut triangles,
         &mut normals,
@@ -72,19 +90,34 @@ fn setup_environment(
         [None, None, None, None, None, None],
     );
 
-    // Register air
-    blocks.new_block(&mut images, &mut materials).unwrap();
-
-    let white_ore_texture: Handle<Image> = asset_server.load("white_ore.png");
-    let white_ore = blocks.new_block(&mut images, &mut materials).unwrap();
-    blocks
-        .set_block_texture(white_ore, white_ore_texture, &mut images, &mut materials)
+    let dirt_image: Handle<Image> = asset_server.load("dirt.png");
+    textures
+        .set_block_texture(dirt_texture, dirt_image, &mut images, &mut materials)
         .unwrap();
 
-    let coords_texture: Handle<Image> = asset_server.load("coords.png");
-    let coords = blocks.new_block(&mut images, &mut materials).unwrap();
-    blocks
-        .set_block_texture(coords, coords_texture, &mut images, &mut materials)
+    let stone_image: Handle<Image> = asset_server.load("stone.png");
+    textures
+        .set_block_texture(stone_texture, stone_image, &mut images, &mut materials)
+        .unwrap();
+
+    let white_ore_image: Handle<Image> = asset_server.load("white_ore.png");
+    textures
+        .set_block_texture(
+            white_ore_texture,
+            white_ore_image,
+            &mut images,
+            &mut materials,
+        )
+        .unwrap();
+
+    let glass_image: Handle<Image> = asset_server.load("glass.png");
+    textures
+        .set_block_texture(glass_texture, glass_image, &mut images, &mut materials)
+        .unwrap();
+
+    let coords_image: Handle<Image> = asset_server.load("coords.png");
+    textures
+        .set_block_texture(coords_texture, coords_image, &mut images, &mut materials)
         .unwrap();
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
@@ -105,7 +138,7 @@ fn setup_environment(
         ..default()
     });
 
-    let atlas = blocks.get_sheet_material(SheetId(0));
+    let atlas = textures.get_sheet_material(SheetId(0));
 
     commands.spawn((
         PbrBundle {
