@@ -9,7 +9,7 @@ use bevy_egui::{
 
 use crate::player::PlayerCamera;
 
-pub(crate) fn ui_system(
+pub fn ui_system(
     mut contexts: EguiContexts,
     diagnostics: Res<DiagnosticsStore>,
     query: Query<&Transform, With<PlayerCamera>>,

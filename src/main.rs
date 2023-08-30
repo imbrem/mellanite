@@ -7,14 +7,9 @@ use bevy::{
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 use bevy_egui::{EguiPlugin, EguiSettings};
-use blocks::{blit_loaded_textures, BlockId, Blocks, SheetId};
-use chunk::{ChunkData, IsChunkMesh};
+use mellanite::blocks::{self, blit_loaded_textures, BlockId, Blocks, SheetId};
+use mellanite::chunk::{ChunkData, IsChunkMesh};
 use rand::Rng;
-
-mod blocks;
-mod chunk;
-mod player;
-mod ui;
 
 fn main() {
     App::new()
@@ -33,10 +28,10 @@ fn main() {
             ..EguiSettings::default()
         })
         .insert_resource(blocks::Blocks::default())
-        .add_systems(Startup, player::setup_player)
+        .add_systems(Startup, mellanite::player::setup_player)
         .add_systems(Startup, setup_environment)
-        .add_systems(Update, ui::ui_system)
-        .add_systems(Update, player::player_control)
+        .add_systems(Update, mellanite::ui::ui_system)
+        .add_systems(Update, mellanite::player::player_control)
         .add_systems(Update, blit_loaded_textures)
         .run()
 }
