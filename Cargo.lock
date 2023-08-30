@@ -2267,7 +2267,9 @@ dependencies = [
  "bevy",
  "bevy_egui",
  "bytemuck",
+ "indexmap 2.0.0",
  "rand",
+ "slab",
 ]
 
 [[package]]

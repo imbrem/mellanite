@@ -1,13 +1,15 @@
 use bevy::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
+use crate::blocks::BlockId;
+
 #[derive(Component)]
-pub struct IsChunk;
+pub struct IsChunkMesh;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(C)]
 pub struct ChunkData {
-    pub blocks: [[[u32; 16]; 16]; 16],
+    pub blocks: [[[BlockId; 16]; 16]; 16],
 }
 
 impl ChunkData {
@@ -32,7 +34,7 @@ impl ChunkData {
         triangles.clear();
         uv.clear();
 
-        let mut buffer = [[[0; 18]; 18]; 18];
+        let mut buffer = [[[BlockId(0); 18]; 18]; 18];
         for x in 0..16 {
             for y in 0..16 {
                 for z in 0..16 {
@@ -96,9 +98,11 @@ impl ChunkData {
                     // top face
                     let me = buffer[x + 1][y + 1][z + 1];
 
-                    if me == 0 {
+                    if me.0 == 0 {
                         continue;
                     }
+
+                    let coords = me.coords();
 
                     let top = buffer[x + 1][y + 2][z + 1];
                     let bottom = buffer[x + 1][y][z + 1];
@@ -106,8 +110,6 @@ impl ChunkData {
                     let left = buffer[x][y + 1][z + 1];
                     let back = buffer[x + 1][y + 1][z + 2];
                     let front = buffer[x + 1][y + 1][z];
-
-                    let uvx = if me == 1 { 0.0 } else { 0.5 };
 
                     // Center of block coordinates
                     let x = x as f32 - 8.0;
@@ -125,10 +127,10 @@ impl ChunkData {
                         normals.push([0.0, 1.0, 0.0]);
                         normals.push([0.0, 1.0, 0.0]);
                         normals.push([0.0, 1.0, 0.0]);
-                        uv.push([uvx, 0.0]);
-                        uv.push([uvx + 0.5, 0.0]);
-                        uv.push([uvx + 0.5, 1.0]);
-                        uv.push([uvx, 1.0]);
+                        uv.push(coords.top_left());
+                        uv.push(coords.top_right());
+                        uv.push(coords.bottom_right());
+                        uv.push(coords.bottom_left());
                         triangles.push(v);
                         triangles.push(v + 3);
                         triangles.push(v + 1);
@@ -146,10 +148,10 @@ impl ChunkData {
                         normals.push([0.0, -1.0, 0.0]);
                         normals.push([0.0, -1.0, 0.0]);
                         normals.push([0.0, -1.0, 0.0]);
-                        uv.push([uvx, 1.0]);
-                        uv.push([uvx, 0.0]);
-                        uv.push([uvx + 0.5, 1.0]);
-                        uv.push([uvx + 0.5, 0.0]);
+                        uv.push(coords.bottom_left());
+                        uv.push(coords.top_left());
+                        uv.push(coords.bottom_right());
+                        uv.push(coords.top_right());
                         triangles.push(v);
                         triangles.push(v + 2);
                         triangles.push(v + 1);
@@ -167,10 +169,10 @@ impl ChunkData {
                         normals.push([1.0, 0.0, 0.0]);
                         normals.push([1.0, 0.0, 0.0]);
                         normals.push([1.0, 0.0, 0.0]);
-                        uv.push([uvx, 1.0]);
-                        uv.push([uvx + 0.5, 1.0]);
-                        uv.push([uvx + 0.5, 0.0]);
-                        uv.push([uvx, 0.0]);
+                        uv.push(coords.bottom_left());
+                        uv.push(coords.bottom_right());
+                        uv.push(coords.top_right());
+                        uv.push(coords.top_left());
                         triangles.push(v);
                         triangles.push(v + 3);
                         triangles.push(v + 1);
@@ -188,10 +190,10 @@ impl ChunkData {
                         normals.push([-1.0, 0.0, 0.0]);
                         normals.push([-1.0, 0.0, 0.0]);
                         normals.push([-1.0, 0.0, 0.0]);
-                        uv.push([uvx + 0.5, 1.0]);
-                        uv.push([uvx, 1.0]);
-                        uv.push([uvx + 0.5, 0.0]);
-                        uv.push([uvx, 0.0]);
+                        uv.push(coords.bottom_right());
+                        uv.push(coords.bottom_left());
+                        uv.push(coords.top_right());
+                        uv.push(coords.top_left());
                         triangles.push(v);
                         triangles.push(v + 2);
                         triangles.push(v + 1);
@@ -209,10 +211,10 @@ impl ChunkData {
                         normals.push([0.0, 0.0, 1.0]);
                         normals.push([0.0, 0.0, 1.0]);
                         normals.push([0.0, 0.0, 1.0]);
-                        uv.push([uvx, 1.0]);
-                        uv.push([uvx, 0.0]);
-                        uv.push([uvx + 0.5, 0.0]);
-                        uv.push([uvx + 0.5, 1.0]);
+                        uv.push(coords.bottom_left());
+                        uv.push(coords.top_left());
+                        uv.push(coords.top_right());
+                        uv.push(coords.bottom_right());
                         triangles.push(v);
                         triangles.push(v + 3);
                         triangles.push(v + 1);
@@ -230,10 +232,10 @@ impl ChunkData {
                         normals.push([0.0, 0.0, -1.0]);
                         normals.push([0.0, 0.0, -1.0]);
                         normals.push([0.0, 0.0, -1.0]);
-                        uv.push([uvx, 0.0]);
-                        uv.push([uvx, 1.0]);
-                        uv.push([uvx + 0.5, 1.0]);
-                        uv.push([uvx + 0.5, 0.0]);
+                        uv.push(coords.top_left());
+                        uv.push(coords.bottom_left());
+                        uv.push(coords.bottom_right());
+                        uv.push(coords.top_right());
                         triangles.push(v);
                         triangles.push(v + 1);
                         triangles.push(v + 3);

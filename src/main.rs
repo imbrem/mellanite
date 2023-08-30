@@ -7,8 +7,8 @@ use bevy::{
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 use bevy_egui::{EguiPlugin, EguiSettings};
-use blocks::Blocks;
-use chunk::{ChunkData, IsChunk};
+use blocks::{blit_loaded_textures, BlockId, Blocks, SheetId};
+use chunk::{ChunkData, IsChunkMesh};
 use rand::Rng;
 
 mod blocks;
@@ -37,6 +37,7 @@ fn main() {
         .add_systems(Startup, setup_environment)
         .add_systems(Update, ui::ui_system)
         .add_systems(Update, player::player_control)
+        .add_systems(Update, blit_loaded_textures)
         .run()
 }
 
@@ -45,19 +46,20 @@ fn setup_environment(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut blocks: ResMut<Blocks>,
+    mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
 ) {
     let mut chunk = ChunkData {
-        blocks: [[[0; 16]; 16]; 16],
+        blocks: [[[BlockId(0); 16]; 16]; 16],
     };
 
     let mut rng = rand::thread_rng();
     for x in 0..16 {
         for z in 0..16 {
             let y = rng.gen_range(7..=9);
-            chunk.blocks[x][y][z] = 2;
+            chunk.blocks[x][y][z] = BlockId(2);
             for y in 0..y {
-                chunk.blocks[x][y][z] = 1;
+                chunk.blocks[x][y][z] = BlockId(1);
             }
         }
     }
@@ -75,35 +77,20 @@ fn setup_environment(
         [None, None, None, None, None, None],
     );
 
-    let atlas_texture: Handle<Image> = asset_server.load("atlas.png");
-    let atlas: Handle<StandardMaterial> = materials.add(StandardMaterial {
-        base_color_texture: Some(atlas_texture),
-        perceptual_roughness: 1.0,
-        reflectance: 0.0,
-        unlit: false,
-        ..default()
-    });
+    // Register air
+    blocks.new_block(&mut images, &mut materials).unwrap();
 
     let white_ore_texture: Handle<Image> = asset_server.load("white_ore.png");
-    let white_ore: Handle<StandardMaterial> = materials.add(StandardMaterial {
-        base_color_texture: Some(white_ore_texture),
-        perceptual_roughness: 1.0,
-        reflectance: 0.0,
-        unlit: false,
-        ..default()
-    });
+    let white_ore = blocks.new_block(&mut images, &mut materials).unwrap();
+    blocks
+        .set_block_texture(white_ore, white_ore_texture, &mut images, &mut materials)
+        .unwrap();
 
     let coords_texture: Handle<Image> = asset_server.load("coords.png");
-    let coords: Handle<StandardMaterial> = materials.add(StandardMaterial {
-        base_color_texture: Some(coords_texture),
-        perceptual_roughness: 1.0,
-        reflectance: 0.0,
-        unlit: false,
-        ..default()
-    });
-
-    blocks.white_ore = white_ore.clone();
-    blocks.coords = coords.clone();
+    let coords = blocks.new_block(&mut images, &mut materials).unwrap();
+    blocks
+        .set_block_texture(coords, coords_texture, &mut images, &mut materials)
+        .unwrap();
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
@@ -123,6 +110,8 @@ fn setup_environment(
         ..default()
     });
 
+    let atlas = blocks.get_sheet_material(SheetId(0));
+
     commands.spawn((
         PbrBundle {
             mesh: chunk_mesh,
@@ -130,6 +119,6 @@ fn setup_environment(
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
             ..default()
         },
-        IsChunk,
+        IsChunkMesh,
     ));
 }

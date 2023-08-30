@@ -6,8 +6,6 @@ use bevy::{
     window::{CursorGrabMode, PrimaryWindow, WindowMode},
 };
 
-use crate::{blocks::Blocks, chunk::IsChunk};
-
 #[derive(Component)]
 pub struct PlayerCamera;
 
@@ -20,10 +18,8 @@ pub fn player_control(
     btn: Res<Input<MouseButton>>,
     mut motion_evr: EventReader<MouseMotion>,
     time: Res<Time>,
-    mut blocks: ResMut<Blocks>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut player: Query<&mut Transform, With<PlayerCamera>>,
-    mut chunk_textures: Query<&mut Handle<StandardMaterial>, With<IsChunk>>,
 ) {
     const MOTION_SPEED: f32 = 3.0;
     const KEYBOARD_ROTATION_SPEED: f32 = PI / 4.0;
@@ -77,17 +73,6 @@ pub fn player_control(
     }
     if key.pressed(KeyCode::E) {
         player.rotate_local_z(KEYBOARD_ROTATION_SPEED * delta)
-    }
-    if key.just_pressed(KeyCode::T) {
-        for mut texture in chunk_textures.iter_mut() {
-            if blocks.swapped {
-                *texture = blocks.white_ore.clone();
-                blocks.swapped = false;
-            } else {
-                *texture = blocks.coords.clone();
-                blocks.swapped = true;
-            }
-        }
     }
 
     for ev in motion_evr.iter() {
