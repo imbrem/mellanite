@@ -8,6 +8,10 @@ use bevy::{
 use bytemuck::{Pod, Zeroable};
 use slab::Slab;
 
+const TEXTURE_SIZE: usize = 16;
+const LOG_SHEET_SIZE: u32 = 8;
+const SHEET_SIZE: usize = 1 << LOG_SHEET_SIZE;
+
 #[derive(Resource, Default)]
 pub struct BlockTextures {
     texture_materials: Vec<Handle<StandardMaterial>>,
@@ -99,24 +103,25 @@ impl BlockTextures {
         let base_color_texture = target_mat.base_color_texture.get_or_insert_with(|| {
             let image = Image::new_fill(
                 Extent3d {
-                    width: 16 * 256,
-                    height: 16 * 256,
+                    width: (TEXTURE_SIZE * SHEET_SIZE) as u32,
+                    height: (TEXTURE_SIZE * SHEET_SIZE) as u32,
                     depth_or_array_layers: 1,
                 },
                 TextureDimension::D2,
-                &[0, 0, 255, 255],
+                &[0, 0, 0, 255],
                 TextureFormat::Rgba8UnormSrgb,
             );
             images.add(image)
         });
         let target_data = images.get_mut(base_color_texture).unwrap();
         let coords = block.coords();
-        let start = coords.x_ix() as usize * 4 * 16 + coords.y_ix() as usize * 4 * 16 * 256;
-        for y in 0..16 {
-            for x in 0..16 {
+        let start = coords.x_ix() as usize * 4 * TEXTURE_SIZE
+            + coords.y_ix() as usize * 4 * TEXTURE_SIZE * SHEET_SIZE;
+        for y in 0..TEXTURE_SIZE {
+            for x in 0..TEXTURE_SIZE {
                 for c in 0..4 {
-                    target_data.data[start + c + x * 4 + y * 4 * 16 * 256] =
-                        texture.data[c + x * 4 + y * 4 * 16]
+                    target_data.data[start + c + x * 4 + y * 4 * TEXTURE_SIZE * SHEET_SIZE] =
+                        texture.data[c + x * 4 + y * 4 * TEXTURE_SIZE]
                 }
             }
         }
@@ -137,19 +142,19 @@ impl BlockTextures {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(transparent)]
-pub struct BlockTextureId(pub u32);
+pub struct BlockTextureId(u32);
 
 impl BlockTextureId {
     /// Get this block's associated texture sheet
     #[inline]
     pub fn sheet(&self) -> SheetId {
-        SheetId((self.0 >> 16) as u16)
+        SheetId((self.0 / (SHEET_SIZE * SHEET_SIZE) as u32) as u16)
     }
 
     /// Get this block's coordinates in the texture sheet
     #[inline]
     pub fn coords(&self) -> SheetCoords {
-        SheetCoords(self.0 as u16)
+        SheetCoords((self.0 % (SHEET_SIZE * SHEET_SIZE) as u32) as u16)
     }
 }
 
@@ -161,9 +166,9 @@ impl Default for BlockTextureId {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(transparent)]
-pub struct SheetCoords(pub u16);
+pub struct SheetCoords(u16);
 
-pub const BORDER_WIDTH: f32 = 0.0002;
+pub const BORDER_WIDTH: f32 = 0.1 / (TEXTURE_SIZE * SHEET_SIZE) as f32;
 
 impl SheetCoords {
     pub fn x_ix(&self) -> u8 {
@@ -176,36 +181,36 @@ impl SheetCoords {
 
     pub fn top_left(&self) -> [f32; 2] {
         [
-            self.x_ix() as f32 / 256.0 + BORDER_WIDTH,
-            self.y_ix() as f32 / 256.0 + BORDER_WIDTH,
+            self.x_ix() as f32 / (SHEET_SIZE as f32) + BORDER_WIDTH,
+            self.y_ix() as f32 / (SHEET_SIZE as f32) + BORDER_WIDTH,
         ]
     }
 
     pub fn top_right(&self) -> [f32; 2] {
         [
-            (self.x_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
-            self.y_ix() as f32 / 256.0 + BORDER_WIDTH,
+            (self.x_ix() as f32 + 1.0) / (SHEET_SIZE as f32) - BORDER_WIDTH,
+            self.y_ix() as f32 / (SHEET_SIZE as f32) + BORDER_WIDTH,
         ]
     }
 
     pub fn bottom_left(&self) -> [f32; 2] {
         [
-            self.x_ix() as f32 / 256.0 + BORDER_WIDTH,
-            (self.y_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
+            self.x_ix() as f32 / (SHEET_SIZE as f32) + BORDER_WIDTH,
+            (self.y_ix() as f32 + 1.0) / (SHEET_SIZE as f32) - BORDER_WIDTH,
         ]
     }
 
     pub fn bottom_right(&self) -> [f32; 2] {
         [
-            (self.x_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
-            (self.y_ix() as f32 + 1.0) / 256.0 - BORDER_WIDTH,
+            (self.x_ix() as f32 + 1.0) / (SHEET_SIZE as f32) - BORDER_WIDTH,
+            (self.y_ix() as f32 + 1.0) / (SHEET_SIZE as f32) - BORDER_WIDTH,
         ]
     }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(transparent)]
-pub struct SheetId(pub u16);
+pub struct SheetId(u16);
 
 pub fn blit_loaded_textures(
     mut events: EventReader<AssetEvent<Image>>,

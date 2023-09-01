@@ -6,9 +6,9 @@ use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
-use bevy_egui::{EguiPlugin, EguiSettings, egui::color_picker::Alpha};
+use bevy_egui::{EguiPlugin, EguiSettings};
 use mellanite::block::{
-    texture::{blit_loaded_textures, BlockTextures, SheetId},
+    texture::{blit_loaded_textures, BlockTextures},
     BlockId, Blocks,
 };
 use mellanite::chunk::{ChunkData, IsChunkMesh};
@@ -138,7 +138,7 @@ fn setup_environment(
         ..default()
     });
 
-    let atlas = textures.get_sheet_material(SheetId(0));
+    let atlas = textures.get_sheet_material(dirt_texture.sheet());
 
     commands.spawn((
         PbrBundle {
