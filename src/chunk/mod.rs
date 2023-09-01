@@ -98,9 +98,6 @@ impl ChunkData {
                     if me.opacity == 0 {
                         continue;
                     }
-                    let mesh = mesher.meshes.entry(me.texture.sheet()).or_default();
-
-                    let coords = me.texture.coords();
 
                     let top = blocks.get_meshing_data(buffer[x + 1][y + 2][z + 1]);
                     let bottom = blocks.get_meshing_data(buffer[x + 1][y][z + 1]);
@@ -116,6 +113,8 @@ impl ChunkData {
 
                     //TODO: shared texture optimization?
                     if me.opacity != top.opacity {
+                        let mesh = mesher.meshes.entry(me.textures[0].sheet()).or_default();
+                        let coords = me.textures[0].coords();
                         let v = mesh.vertices.len() as u16;
                         mesh.vertices.push([x - 0.5, y + 0.5, z - 0.5]);
                         mesh.vertices.push([x + 0.5, y + 0.5, z - 0.5]);
@@ -137,6 +136,8 @@ impl ChunkData {
                         mesh.triangles.push(v + 2);
                     }
                     if me.opacity != bottom.opacity {
+                        let mesh = mesher.meshes.entry(me.textures[1].sheet()).or_default();
+                        let coords = me.textures[1].coords();
                         let v = mesh.vertices.len() as u16;
                         mesh.vertices.push([x + 0.5, y - 0.5, z + 0.5]);
                         mesh.vertices.push([x + 0.5, y - 0.5, z - 0.5]);
@@ -158,6 +159,8 @@ impl ChunkData {
                         mesh.triangles.push(v + 1);
                     }
                     if me.opacity != right.opacity {
+                        let mesh = mesher.meshes.entry(me.textures[2].sheet()).or_default();
+                        let coords = me.textures[2].coords();
                         let v = mesh.vertices.len() as u16;
                         mesh.vertices.push([x + 0.5, y - 0.5, z - 0.5]);
                         mesh.vertices.push([x + 0.5, y - 0.5, z + 0.5]);
@@ -179,6 +182,8 @@ impl ChunkData {
                         mesh.triangles.push(v + 2);
                     }
                     if me.opacity != left.opacity {
+                        let mesh = mesher.meshes.entry(me.textures[3].sheet()).or_default();
+                        let coords = me.textures[3].coords();
                         let v = mesh.vertices.len() as u16;
                         mesh.vertices.push([x - 0.5, y - 0.5, z + 0.5]);
                         mesh.vertices.push([x - 0.5, y - 0.5, z - 0.5]);
@@ -200,6 +205,8 @@ impl ChunkData {
                         mesh.triangles.push(v + 1);
                     }
                     if me.opacity != back.opacity {
+                        let mesh = mesher.meshes.entry(me.textures[4].sheet()).or_default();
+                        let coords = me.textures[4].coords();
                         let v = mesh.vertices.len() as u16;
                         mesh.vertices.push([x - 0.5, y - 0.5, z + 0.5]);
                         mesh.vertices.push([x - 0.5, y + 0.5, z + 0.5]);
@@ -221,6 +228,8 @@ impl ChunkData {
                         mesh.triangles.push(v + 2);
                     }
                     if me.opacity != front.opacity {
+                        let mesh = mesher.meshes.entry(me.textures[5].sheet()).or_default();
+                        let coords = me.textures[5].coords();
                         let v = mesh.vertices.len() as u16;
                         mesh.vertices.push([x - 0.5, y - 0.5, z - 0.5]);
                         mesh.vertices.push([x - 0.5, y + 0.5, z - 0.5]);

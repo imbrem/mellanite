@@ -93,18 +93,38 @@ fn setup_environment(
     let glass_texture = block_materials
         .new_texture(glassy_material, &mut materials)
         .unwrap();
-    let coords = blocks.new_block(coords_texture, u32::MAX).unwrap();
-    let dirt = blocks.new_block(dirt_texture, u32::MAX).unwrap();
-    let stone = blocks.new_block(stone_texture, u32::MAX).unwrap();
-    let white_ore = blocks.new_block(white_ore_texture, u32::MAX).unwrap();
-    let glass = blocks.new_block(glass_texture, 1).unwrap();
+    let grass_top_texture = block_materials
+        .new_texture(solid_material, &mut materials)
+        .unwrap();
+    let grass_side_texture = block_materials
+        .new_texture(solid_material, &mut materials)
+        .unwrap();
+    let coords = blocks.new_block([coords_texture; 6], u32::MAX).unwrap();
+    let dirt = blocks.new_block([dirt_texture; 6], u32::MAX).unwrap();
+    let stone = blocks.new_block([stone_texture; 6], u32::MAX).unwrap();
+    let white_ore = blocks.new_block([white_ore_texture; 6], u32::MAX).unwrap();
+    let glass = blocks.new_block([glass_texture; 6], 1).unwrap();
+    let grass = blocks
+        .new_block(
+            [
+                grass_top_texture,
+                dirt_texture,
+                grass_side_texture,
+                grass_side_texture,
+                grass_side_texture,
+                grass_side_texture,
+            ],
+            u32::MAX,
+        )
+        .unwrap();
 
     let mut rng = rand::thread_rng();
     for x in 0..16 {
         for z in 0..16 {
             let y = rng.gen_range(7..=9);
-            chunk.blocks[x][y][z] = dirt;
-            for y in 0..y {
+            chunk.blocks[x][y][z] = grass;
+            chunk.blocks[x][y - 1][z] = dirt;
+            for y in 0..y - 1 {
                 if rng.gen_bool(0.1) {
                     chunk.blocks[x][y][z] = white_ore;
                 } else if rng.gen_bool(0.1) {
@@ -147,6 +167,21 @@ fn setup_environment(
         .set_block_texture(glass_texture, glass_image, &mut images, &mut materials)
         .unwrap();
 
+    let grass_side: Handle<Image> = asset_server.load("grass_side.png");
+    block_materials
+        .set_block_texture(grass_side_texture, grass_side, &mut images, &mut materials)
+        .unwrap();
+
+    let grass_top_image: Handle<Image> = asset_server.load("grass_top.png");
+    block_materials
+        .set_block_texture(
+            grass_top_texture,
+            grass_top_image,
+            &mut images,
+            &mut materials,
+        )
+        .unwrap();
+
     let coords_image: Handle<Image> = asset_server.load("coords.png");
     block_materials
         .set_block_texture(coords_texture, coords_image, &mut images, &mut materials)
@@ -176,9 +211,19 @@ fn setup_environment(
         point_light: PointLight {
             intensity: 1000.0,
             range: 100.0,
+            color: Color::ORANGE,
             ..default()
         },
         transform: Transform::from_translation(Vec3::new(0.0, 5.0, 0.0)),
+        ..default()
+    });
+
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 2000.0,
+            shadows_enabled: true,
+            ..default()
+        },
         ..default()
     });
 }

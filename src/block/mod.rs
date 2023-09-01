@@ -16,7 +16,7 @@ impl Blocks {
     #[inline]
     pub fn new_block(
         &mut self,
-        texture: BlockTextureId,
+        textures: [BlockTextureId; 6],
         opacity: u32,
     ) -> Result<BlockId, ()> {
         let ix = self.blocks.insert(());
@@ -27,7 +27,7 @@ impl Blocks {
             while self.meshing_data.len() <= ix {
                 self.meshing_data.push(default())
             }
-            self.meshing_data[ix] = MeshingData { texture, opacity };
+            self.meshing_data[ix] = MeshingData { textures, opacity };
             Ok(id)
         }
     }
@@ -43,7 +43,7 @@ impl Blocks {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default)]
 pub struct MeshingData {
-    pub texture: BlockTextureId,
+    pub textures: [BlockTextureId; 6],
     pub opacity: u32,
 }
 
