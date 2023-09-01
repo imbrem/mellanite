@@ -8,7 +8,7 @@ use bevy::{
 };
 use bevy_egui::{EguiPlugin, EguiSettings};
 use mellanite::block::{
-    texture::{blit_loaded_textures, BlockTextures},
+    texture::{blit_loaded_textures, BlockMaterials},
     BlockId, Blocks,
 };
 use mellanite::chunk::{ChunkData, IsChunkMesh};
@@ -31,7 +31,7 @@ fn main() {
             ..EguiSettings::default()
         })
         .insert_resource(Blocks::default())
-        .insert_resource(BlockTextures::default())
+        .insert_resource(BlockMaterials::default())
         .add_systems(Startup, mellanite::player::setup_player)
         .add_systems(Startup, setup_environment)
         .add_systems(Update, mellanite::ui::ui_system)
@@ -45,7 +45,7 @@ fn setup_environment(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut blocks: ResMut<Blocks>,
-    mut textures: ResMut<BlockTextures>,
+    mut textures: ResMut<BlockMaterials>,
     mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -53,16 +53,47 @@ fn setup_environment(
         blocks: [[[BlockId::default(); 16]; 16]; 16],
     };
 
-    let coords_texture = textures.new_texture(&mut materials).unwrap();
-    let dirt_texture = textures.new_texture(&mut materials).unwrap();
-    let stone_texture: mellanite::block::texture::BlockTextureId =
-        textures.new_texture(&mut materials).unwrap();
-    let white_ore_texture = textures.new_texture(&mut materials).unwrap();
-    let glass_texture = textures.new_texture(&mut materials).unwrap();
-    let _coords = blocks.new_block(coords_texture, u32::MAX).unwrap();
+    let solid_material = textures
+        .new_material(materials.add(StandardMaterial {
+            base_color_texture: None,
+            perceptual_roughness: 1.0,
+            reflectance: 0.0,
+            unlit: false,
+            alpha_mode: AlphaMode::Mask(0.5),
+            ..default()
+        }))
+        .unwrap();
+
+    let glassy_material = textures
+        .new_material(materials.add(StandardMaterial {
+            base_color_texture: None,
+            perceptual_roughness: 1.0,
+            reflectance: 0.5,
+            unlit: false,
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        }))
+        .unwrap();
+
+    let coords_texture = textures
+        .new_texture(solid_material, &mut materials)
+        .unwrap();
+    let dirt_texture = textures
+        .new_texture(solid_material, &mut materials)
+        .unwrap();
+    let stone_texture: mellanite::block::texture::BlockTextureId = textures
+        .new_texture(solid_material, &mut materials)
+        .unwrap();
+    let white_ore_texture = textures
+        .new_texture(solid_material, &mut materials)
+        .unwrap();
+    let glass_texture = textures
+        .new_texture(glassy_material, &mut materials)
+        .unwrap();
+    let coords = blocks.new_block(coords_texture, u32::MAX).unwrap();
     let dirt = blocks.new_block(dirt_texture, u32::MAX).unwrap();
-    let _stone = blocks.new_block(stone_texture, u32::MAX).unwrap();
-    let _white_ore = blocks.new_block(white_ore_texture, u32::MAX).unwrap();
+    let stone = blocks.new_block(stone_texture, u32::MAX).unwrap();
+    let white_ore = blocks.new_block(white_ore_texture, u32::MAX).unwrap();
     let glass = blocks.new_block(glass_texture, 1).unwrap();
 
     let mut rng = rand::thread_rng();
@@ -71,7 +102,15 @@ fn setup_environment(
             let y = rng.gen_range(7..=9);
             chunk.blocks[x][y][z] = dirt;
             for y in 0..y {
-                chunk.blocks[x][y][z] = glass;
+                if rng.gen_bool(0.1) {
+                    chunk.blocks[x][y][z] = white_ore;
+                } else if rng.gen_bool(0.1) {
+                    chunk.blocks[x][y][z] = coords;
+                } else if rng.gen_bool(0.5) {
+                    chunk.blocks[x][y][z] = stone;
+                } else {
+                    chunk.blocks[x][y][z] = glass;
+                }
             }
         }
     }
