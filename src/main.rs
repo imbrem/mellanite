@@ -8,7 +8,7 @@ use bevy::{
 };
 use bevy_egui::{EguiPlugin, EguiSettings};
 use bevy_rapier3d::prelude::*;
-use mellanite::chunk::{ChunkData, IsChunkMesh};
+use mellanite::chunk::{ChunkData, IsChunk, IsChunkMesh};
 use mellanite::{
     block::{
         texture::{blit_loaded_textures, BlockMaterials},
@@ -104,11 +104,17 @@ fn setup_environment(
     let grass_side_texture = block_materials
         .new_texture(solid_block_material, &mut materials)
         .unwrap();
-    let coords = blocks.new_block([coords_texture; 6], u32::MAX).unwrap();
-    let dirt = blocks.new_block([dirt_texture; 6], u32::MAX).unwrap();
-    let stone = blocks.new_block([stone_texture; 6], u32::MAX).unwrap();
-    let white_ore = blocks.new_block([white_ore_texture; 6], u32::MAX).unwrap();
-    let glass = blocks.new_block([glass_texture; 6], 1).unwrap();
+    let coords = blocks
+        .new_block([coords_texture; 6], u32::MAX, true)
+        .unwrap();
+    let dirt = blocks.new_block([dirt_texture; 6], u32::MAX, true).unwrap();
+    let stone = blocks
+        .new_block([stone_texture; 6], u32::MAX, true)
+        .unwrap();
+    let white_ore = blocks
+        .new_block([white_ore_texture; 6], u32::MAX, true)
+        .unwrap();
+    let glass = blocks.new_block([glass_texture; 6], 1, true).unwrap();
     let grass = blocks
         .new_block(
             [
@@ -120,6 +126,7 @@ fn setup_environment(
                 grass_side_texture,
             ],
             u32::MAX,
+            true,
         )
         .unwrap();
 
@@ -192,35 +199,34 @@ fn setup_environment(
         .set_block_texture(coords_texture, coords_image, &mut images, &mut materials)
         .unwrap();
 
-    for (sheet, mesh) in mesher.meshes {
-        let mut chunk_mesh = Mesh::new(PrimitiveTopology::TriangleList);
-
-        let vertices = mesh.vertices.iter().copied().map(Vec3::from).collect();
-        let indices = mesh
-            .triangles
-            .chunks_exact(3)
-            .map(|v| [v[0] as u32, v[1] as u32, v[2] as u32])
-            .collect();
-        let collider = Collider::trimesh(vertices, indices);
-
-        chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices);
-        chunk_mesh.set_indices(Some(Indices::U16(mesh.triangles)));
-        chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals);
-        chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, mesh.uv);
-
-        let chunk_mesh = meshes.add(chunk_mesh);
-
-        commands.spawn((
-            PbrBundle {
-                mesh: chunk_mesh,
-                material: block_materials.get_sheet_material(sheet),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
-                ..default()
-            },
+    let collider = Collider::trimesh(mesher.physics_vertices, mesher.physics_triangles);
+    commands
+        .spawn((
+            IsChunk,
             collider,
-            IsChunkMesh,
-        ));
-    }
+            SpatialBundle::from_transform(Transform::from_translation(Vec3::new(0.0, 0.0, -10.0))),
+        ))
+        .with_children(|chunk| {
+            for (sheet, mesh) in mesher.meshes {
+                let mut chunk_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+
+                chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices);
+                chunk_mesh.set_indices(Some(Indices::U16(mesh.triangles)));
+                chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals);
+                chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, mesh.uv);
+
+                let chunk_mesh = meshes.add(chunk_mesh);
+
+                chunk.spawn((
+                    PbrBundle {
+                        mesh: chunk_mesh,
+                        material: block_materials.get_sheet_material(sheet),
+                        ..default()
+                    },
+                    IsChunkMesh,
+                ));
+            }
+        });
 
     commands.spawn((
         RigidBody::Dynamic,

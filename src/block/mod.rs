@@ -18,6 +18,7 @@ impl Blocks {
         &mut self,
         textures: [BlockTextureId; 6],
         opacity: u32,
+        solid: bool,
     ) -> Result<BlockId, ()> {
         let ix = self.blocks.insert(());
         if ix >= u32::MAX as usize {
@@ -27,7 +28,11 @@ impl Blocks {
             while self.meshing_data.len() <= ix {
                 self.meshing_data.push(default())
             }
-            self.meshing_data[ix] = MeshingData { textures, opacity };
+            self.meshing_data[ix] = MeshingData {
+                textures,
+                opacity,
+                solid,
+            };
             Ok(id)
         }
     }
@@ -45,6 +50,7 @@ impl Blocks {
 pub struct MeshingData {
     pub textures: [BlockTextureId; 6],
     pub opacity: u32,
+    pub solid: bool,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Zeroable, Pod)]

@@ -10,6 +10,9 @@ pub mod mesher;
 #[derive(Component)]
 pub struct IsChunkMesh;
 
+#[derive(Component)]
+pub struct IsChunk;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(C)]
 pub struct ChunkData {
@@ -135,6 +138,18 @@ impl ChunkData {
                         mesh.triangles.push(v + 3);
                         mesh.triangles.push(v + 2);
                     }
+                    if me.solid > top.solid {
+                        let v = mesher.physics_vertices.len() as u32;
+                        mesher.physics_vertices.extend([
+                            Vec3::from([x - 0.5, y + 0.5, z - 0.5]),
+                            [x + 0.5, y + 0.5, z - 0.5].into(),
+                            [x + 0.5, y + 0.5, z + 0.5].into(),
+                            [x - 0.5, y + 0.5, z + 0.5].into(),
+                        ]);
+                        mesher
+                            .physics_triangles
+                            .extend([[v, v + 3, v + 1], [v + 1, v + 3, v + 2]]);
+                    }
                     if me.opacity != bottom.opacity {
                         let mesh = mesher.meshes.entry(me.textures[1].sheet()).or_default();
                         let coords = me.textures[1].coords();
@@ -157,6 +172,18 @@ impl ChunkData {
                         mesh.triangles.push(v + 2);
                         mesh.triangles.push(v + 3);
                         mesh.triangles.push(v + 1);
+                    }
+                    if me.solid > bottom.solid {
+                        let v = mesher.physics_vertices.len() as u32;
+                        mesher.physics_vertices.extend([
+                            Vec3::from([x + 0.5, y - 0.5, z + 0.5]),
+                            [x + 0.5, y - 0.5, z - 0.5].into(),
+                            [x - 0.5, y - 0.5, z + 0.5].into(),
+                            [x - 0.5, y - 0.5, z - 0.5].into(),
+                        ]);
+                        mesher
+                            .physics_triangles
+                            .extend([[v, v + 2, v + 1], [v + 2, v + 3, v + 1]]);
                     }
                     if me.opacity != right.opacity {
                         let mesh = mesher.meshes.entry(me.textures[2].sheet()).or_default();
@@ -181,6 +208,18 @@ impl ChunkData {
                         mesh.triangles.push(v + 3);
                         mesh.triangles.push(v + 2);
                     }
+                    if me.solid > right.solid {
+                        let v = mesher.physics_vertices.len() as u32;
+                        mesher.physics_vertices.extend([
+                            Vec3::from([x + 0.5, y - 0.5, z - 0.5]),
+                            [x + 0.5, y - 0.5, z + 0.5].into(),
+                            [x + 0.5, y + 0.5, z + 0.5].into(),
+                            [x + 0.5, y + 0.5, z - 0.5].into(),
+                        ]);
+                        mesher
+                            .physics_triangles
+                            .extend([[v, v + 3, v + 1], [v + 1, v + 3, v + 2]]);
+                    }
                     if me.opacity != left.opacity {
                         let mesh = mesher.meshes.entry(me.textures[3].sheet()).or_default();
                         let coords = me.textures[3].coords();
@@ -203,6 +242,18 @@ impl ChunkData {
                         mesh.triangles.push(v + 2);
                         mesh.triangles.push(v + 3);
                         mesh.triangles.push(v + 1);
+                    }
+                    if me.solid > left.solid {
+                        let v = mesher.physics_vertices.len() as u32;
+                        mesher.physics_vertices.extend([
+                            Vec3::from([x - 0.5, y - 0.5, z + 0.5]),
+                            [x - 0.5, y - 0.5, z - 0.5].into(),
+                            [x - 0.5, y + 0.5, z + 0.5].into(),
+                            [x - 0.5, y + 0.5, z - 0.5].into(),
+                        ]);
+                        mesher
+                            .physics_triangles
+                            .extend([[v, v + 2, v + 1], [v + 2, v + 3, v + 1]]);
                     }
                     if me.opacity != back.opacity {
                         let mesh = mesher.meshes.entry(me.textures[4].sheet()).or_default();
@@ -227,6 +278,18 @@ impl ChunkData {
                         mesh.triangles.push(v + 3);
                         mesh.triangles.push(v + 2);
                     }
+                    if me.solid > back.solid {
+                        let v = mesher.physics_vertices.len() as u32;
+                        mesher.physics_vertices.extend([
+                            Vec3::from([x - 0.5, y - 0.5, z + 0.5]),
+                            [x - 0.5, y + 0.5, z + 0.5].into(),
+                            [x + 0.5, y + 0.5, z + 0.5].into(),
+                            [x + 0.5, y - 0.5, z + 0.5].into(),
+                        ]);
+                        mesher
+                            .physics_triangles
+                            .extend([[v, v + 3, v + 1], [v + 1, v + 3, v + 2]]);
+                    }
                     if me.opacity != front.opacity {
                         let mesh = mesher.meshes.entry(me.textures[5].sheet()).or_default();
                         let coords = me.textures[5].coords();
@@ -249,6 +312,18 @@ impl ChunkData {
                         mesh.triangles.push(v + 1);
                         mesh.triangles.push(v + 2);
                         mesh.triangles.push(v + 3);
+                    }
+                    if me.solid > front.solid {
+                        let v = mesher.physics_vertices.len() as u32;
+                        mesher.physics_vertices.extend([
+                            Vec3::from([x - 0.5, y - 0.5, z - 0.5]),
+                            [x - 0.5, y + 0.5, z - 0.5].into(),
+                            [x + 0.5, y + 0.5, z - 0.5].into(),
+                            [x + 0.5, y - 0.5, z - 0.5].into(),
+                        ]);
+                        mesher
+                            .physics_triangles
+                            .extend([[v, v + 1, v + 3], [v + 1, v + 2, v + 3]]);
                     }
                 }
             }
