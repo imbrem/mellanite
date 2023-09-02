@@ -7,6 +7,7 @@ use bevy::{
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 use bevy_egui::{EguiPlugin, EguiSettings};
+use bevy_rapier3d::prelude::*;
 use mellanite::chunk::{ChunkData, IsChunkMesh};
 use mellanite::{
     block::{
@@ -29,11 +30,14 @@ fn main() {
         )
         .add_plugins(EguiPlugin)
         .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+        // .add_plugins(RapierDebugRenderPlugin::default())
         .insert_resource(EguiSettings {
             scale_factor: 1.0,
             ..EguiSettings::default()
         })
         .insert_resource(Blocks::default())
+        .insert_resource(ClearColor(Color::ALICE_BLUE))
         .insert_resource(BlockMaterials::default())
         .add_systems(Startup, mellanite::player::setup_player)
         .add_systems(Startup, setup_environment)
@@ -56,15 +60,16 @@ fn setup_environment(
         blocks: [[[BlockId::default(); 16]; 16]; 16],
     };
 
-    let solid_material = block_materials
-        .new_material(materials.add(StandardMaterial {
-            base_color_texture: None,
-            perceptual_roughness: 1.0,
-            reflectance: 0.0,
-            unlit: false,
-            alpha_mode: AlphaMode::Mask(0.5),
-            ..default()
-        }))
+    let solid_material = materials.add(StandardMaterial {
+        base_color_texture: None,
+        perceptual_roughness: 1.0,
+        reflectance: 0.0,
+        unlit: false,
+        alpha_mode: AlphaMode::Mask(0.5),
+        ..default()
+    });
+    let solid_block_material = block_materials
+        .new_material(solid_material.clone())
         .unwrap();
 
     let glassy_material = block_materials
@@ -79,25 +84,25 @@ fn setup_environment(
         .unwrap();
 
     let coords_texture = block_materials
-        .new_texture(solid_material, &mut materials)
+        .new_texture(solid_block_material, &mut materials)
         .unwrap();
     let dirt_texture = block_materials
-        .new_texture(solid_material, &mut materials)
+        .new_texture(solid_block_material, &mut materials)
         .unwrap();
     let stone_texture: mellanite::block::texture::BlockTextureId = block_materials
-        .new_texture(solid_material, &mut materials)
+        .new_texture(solid_block_material, &mut materials)
         .unwrap();
     let white_ore_texture = block_materials
-        .new_texture(solid_material, &mut materials)
+        .new_texture(solid_block_material, &mut materials)
         .unwrap();
     let glass_texture = block_materials
         .new_texture(glassy_material, &mut materials)
         .unwrap();
     let grass_top_texture = block_materials
-        .new_texture(solid_material, &mut materials)
+        .new_texture(solid_block_material, &mut materials)
         .unwrap();
     let grass_side_texture = block_materials
-        .new_texture(solid_material, &mut materials)
+        .new_texture(solid_block_material, &mut materials)
         .unwrap();
     let coords = blocks.new_block([coords_texture; 6], u32::MAX).unwrap();
     let dirt = blocks.new_block([dirt_texture; 6], u32::MAX).unwrap();
@@ -189,6 +194,15 @@ fn setup_environment(
 
     for (sheet, mesh) in mesher.meshes {
         let mut chunk_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+
+        let vertices = mesh.vertices.iter().copied().map(Vec3::from).collect();
+        let indices = mesh
+            .triangles
+            .chunks_exact(3)
+            .map(|v| [v[0] as u32, v[1] as u32, v[2] as u32])
+            .collect();
+        let collider = Collider::trimesh(vertices, indices);
+
         chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices);
         chunk_mesh.set_indices(Some(Indices::U16(mesh.triangles)));
         chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals);
@@ -203,9 +217,29 @@ fn setup_environment(
                 transform: Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
                 ..default()
             },
+            collider,
             IsChunkMesh,
         ));
     }
+
+    commands.spawn((
+        RigidBody::Dynamic,
+        Collider::ball(0.5),
+        Restitution::coefficient(0.7),
+        PbrBundle {
+            mesh: meshes.add(
+                shape::Icosphere {
+                    radius: 0.5,
+                    subdivisions: 2,
+                }
+                .try_into()
+                .unwrap(),
+            ),
+            transform: Transform::from_xyz(0.0, 30.0, -15.0),
+            material: solid_material,
+            ..default()
+        },
+    ));
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -220,7 +254,7 @@ fn setup_environment(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 2000.0,
+            illuminance: 10000.0,
             shadows_enabled: true,
             ..default()
         },
