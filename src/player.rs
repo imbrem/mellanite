@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     input::mouse::MouseMotion,
-    prelude::*,
+    prelude::{shape::Cube, *},
     window::{CursorGrabMode, PrimaryWindow, WindowMode},
 };
 use bevy_rapier3d::prelude::*;
@@ -10,12 +10,34 @@ use bevy_rapier3d::prelude::*;
 #[derive(Component)]
 pub struct PlayerCamera;
 
-pub fn setup_player(mut commands: Commands) {
+#[derive(Component)]
+pub struct HighlightedBlock;
+
+pub fn setup_player(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
     commands.spawn((
         Camera3dBundle::default(),
         KinematicCharacterController::default(),
         Collider::capsule_y(1.0, 0.5),
         PlayerCamera,
+    ));
+
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cube { size: 0.3 }.into()),
+            material: materials.add(StandardMaterial {
+                unlit: true,
+                fog_enabled: false,
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
+            visibility: Visibility::Hidden,
+            ..default()
+        },
+        HighlightedBlock,
     ));
 }
 
@@ -24,10 +46,16 @@ pub fn player_control(
     btn: Res<Input<MouseButton>>,
     mut motion_evr: EventReader<MouseMotion>,
     time: Res<Time>,
+    rapier_context: Res<RapierContext>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut player: Query<(&mut Transform, &mut KinematicCharacterController), With<PlayerCamera>>,
+    mut highlight: Query<
+        (&mut Transform, &Handle<StandardMaterial>, &mut Visibility),
+        (With<HighlightedBlock>, Without<PlayerCamera>),
+    >,
 ) {
-    const MOTION_SPEED: f32 = 3.0;
+    const MOTION_SPEED: f32 = 6.0;
     const KEYBOARD_ROTATION_SPEED: f32 = PI / 4.0;
     const SENSITIVITY: f32 = 1.0;
     let mut window = window.get_single_mut().unwrap();
@@ -55,6 +83,27 @@ pub fn player_control(
     let delta = time.delta_seconds();
     let up = player_position.up();
     let forward = player_position.forward();
+
+    let mut highlight = highlight.get_single_mut().unwrap();
+    let ray_origin = player_position.translation + 0.5 * player_position.forward();
+    match rapier_context.cast_ray(ray_origin, player_position.forward(), 8.0, false, default()) {
+        Some((_entity, toi)) if toi > 0.5 => {
+            highlight.0.translation = ray_origin + toi * player_position.forward();
+            if btn.just_pressed(MouseButton::Left) {
+                materials.get_mut(highlight.1).unwrap().base_color = Color::RED;
+            } else if btn.just_pressed(MouseButton::Right) {
+                materials.get_mut(highlight.1).unwrap().base_color = Color::BLUE;
+            } else if btn.just_pressed(MouseButton::Middle) {
+                materials.get_mut(highlight.1).unwrap().base_color = Color::GREEN;
+            } else {
+                materials.get_mut(highlight.1).unwrap().base_color =
+                    Color::rgba(1.0 - toi / 7.0, 1.0, 1.0, 1.0 - toi / 7.0);
+            }
+            *highlight.2 = Visibility::Visible
+        }
+        _ => *highlight.2 = Visibility::Hidden,
+    }
+
     let right = player_position.right();
     if key.pressed(KeyCode::Space) {
         player_controller.translation = Some(up * MOTION_SPEED * delta);
