@@ -5,12 +5,18 @@ use bevy::{
     prelude::*,
     window::{CursorGrabMode, PrimaryWindow, WindowMode},
 };
+use bevy_rapier3d::prelude::*;
 
 #[derive(Component)]
 pub struct PlayerCamera;
 
 pub fn setup_player(mut commands: Commands) {
-    commands.spawn((Camera3dBundle::default(), PlayerCamera));
+    commands.spawn((
+        Camera3dBundle::default(),
+        KinematicCharacterController::default(),
+        Collider::capsule_y(1.0, 0.5),
+        PlayerCamera,
+    ));
 }
 
 pub fn player_control(
@@ -19,7 +25,7 @@ pub fn player_control(
     mut motion_evr: EventReader<MouseMotion>,
     time: Res<Time>,
     mut window: Query<&mut Window, With<PrimaryWindow>>,
-    mut player: Query<&mut Transform, With<PlayerCamera>>,
+    mut player: Query<(&mut Transform, &mut KinematicCharacterController), With<PlayerCamera>>,
 ) {
     const MOTION_SPEED: f32 = 3.0;
     const KEYBOARD_ROTATION_SPEED: f32 = PI / 4.0;
@@ -45,42 +51,42 @@ pub fn player_control(
         };
     }
 
-    let mut player = player.get_single_mut().unwrap();
+    let (mut player_position, mut player_controller) = player.get_single_mut().unwrap();
     let delta = time.delta_seconds();
-    let up = player.up();
-    let forward = player.forward();
-    let right = player.right();
+    let up = player_position.up();
+    let forward = player_position.forward();
+    let right = player_position.right();
     if key.pressed(KeyCode::Space) {
-        player.translation += up * MOTION_SPEED * delta;
+        player_controller.translation = Some(up * MOTION_SPEED * delta);
     }
     if key.pressed(KeyCode::ShiftLeft) {
-        player.translation -= up * MOTION_SPEED * delta;
+        player_controller.translation = Some(-up * MOTION_SPEED * delta);
     }
     if key.pressed(KeyCode::W) {
-        player.translation += forward * MOTION_SPEED * delta;
+        player_controller.translation = Some(forward * MOTION_SPEED * delta);
     }
     if key.pressed(KeyCode::A) {
-        player.translation -= right * MOTION_SPEED * delta;
+        player_controller.translation = Some(-right * MOTION_SPEED * delta);
     }
     if key.pressed(KeyCode::S) {
-        player.translation -= forward * MOTION_SPEED * delta;
+        player_controller.translation = Some(-forward * MOTION_SPEED * delta);
     }
     if key.pressed(KeyCode::D) {
-        player.translation += right * MOTION_SPEED * delta;
+        player_controller.translation = Some(right * MOTION_SPEED * delta);
     }
     if key.pressed(KeyCode::Q) {
-        player.rotate_local_z(-KEYBOARD_ROTATION_SPEED * delta)
+        player_position.rotate_local_z(-KEYBOARD_ROTATION_SPEED * delta)
     }
     if key.pressed(KeyCode::E) {
-        player.rotate_local_z(KEYBOARD_ROTATION_SPEED * delta)
+        player_position.rotate_local_z(KEYBOARD_ROTATION_SPEED * delta)
     }
 
     for ev in motion_evr.iter() {
         if window.cursor.grab_mode == CursorGrabMode::Locked {
             let pitch = SENSITIVITY * ev.delta.x / window_scale;
             let yaw = SENSITIVITY * ev.delta.y / window_scale;
-            player.rotate_local_y(-pitch);
-            player.rotate_local_x(-yaw);
+            player_position.rotate_local_y(-pitch);
+            player_position.rotate_local_x(-yaw);
         }
     }
 }
