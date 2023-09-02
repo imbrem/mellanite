@@ -1,20 +1,15 @@
 use std::time::Duration;
 
-use bevy::{
-    asset::ChangeWatcher,
-    diagnostic::FrameTimeDiagnosticsPlugin,
-    prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
-};
+use bevy::{asset::ChangeWatcher, diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
 use bevy_egui::{EguiPlugin, EguiSettings};
 use bevy_rapier3d::prelude::*;
-use mellanite::chunk::{ChunkData, IsChunk, IsChunkMesh};
-use mellanite::{
-    block::{
-        texture::{blit_loaded_textures, BlockMaterials},
-        BlockId, Blocks,
-    },
-    chunk::mesher::Mesher,
+use mellanite::block::{
+    texture::{blit_loaded_textures, BlockMaterials},
+    BlockId, Blocks,
+};
+use mellanite::chunk::{
+    mesher::{chunk_mesher_system, ChunkNeedsMeshing},
+    Chunk, ChunkData,
 };
 use rand::Rng;
 
@@ -44,6 +39,7 @@ fn main() {
         .add_systems(Update, mellanite::ui::ui_system)
         .add_systems(Update, mellanite::player::player_control)
         .add_systems(Update, blit_loaded_textures)
+        .add_systems(Update, chunk_mesher_system)
         .run()
 }
 
@@ -150,10 +146,6 @@ fn setup_environment(
         }
     }
 
-    let mut mesher = Mesher::default();
-
-    chunk.compute_mesh(&blocks, [None, None, None, None, None, None], &mut mesher);
-
     let dirt_image: Handle<Image> = asset_server.load("dirt.png");
     block_materials
         .set_block_texture(dirt_texture, dirt_image, &mut images, &mut materials)
@@ -199,34 +191,12 @@ fn setup_environment(
         .set_block_texture(coords_texture, coords_image, &mut images, &mut materials)
         .unwrap();
 
-    let collider = Collider::trimesh(mesher.physics_vertices, mesher.physics_triangles);
-    commands
-        .spawn((
-            IsChunk,
-            collider,
-            SpatialBundle::from_transform(Transform::from_translation(Vec3::new(0.0, 0.0, -10.0))),
-        ))
-        .with_children(|chunk| {
-            for (sheet, mesh) in mesher.meshes {
-                let mut chunk_mesh = Mesh::new(PrimitiveTopology::TriangleList);
-
-                chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices);
-                chunk_mesh.set_indices(Some(Indices::U16(mesh.triangles)));
-                chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals);
-                chunk_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, mesh.uv);
-
-                let chunk_mesh = meshes.add(chunk_mesh);
-
-                chunk.spawn((
-                    PbrBundle {
-                        mesh: chunk_mesh,
-                        material: block_materials.get_sheet_material(sheet),
-                        ..default()
-                    },
-                    IsChunkMesh,
-                ));
-            }
-        });
+    commands.spawn((
+        Chunk { data: chunk },
+        Collider::default(),
+        SpatialBundle::from_transform(Transform::from_translation(Vec3::new(0.0, 0.0, -10.0))),
+        ChunkNeedsMeshing,
+    ));
 
     commands.spawn((
         RigidBody::Dynamic,

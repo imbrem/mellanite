@@ -1,17 +1,19 @@
 use bevy::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
-use crate::block::{BlockId, Blocks};
+use crate::block::{texture::SheetId, BlockId, Blocks};
 
 use self::mesher::Mesher;
 
 pub mod mesher;
 
 #[derive(Component)]
-pub struct IsChunkMesh;
+pub struct IsChunkMesh(pub SheetId);
 
 #[derive(Component)]
-pub struct IsChunk;
+pub struct Chunk {
+    pub data: ChunkData,
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Pod, Zeroable)]
 #[repr(C)]
